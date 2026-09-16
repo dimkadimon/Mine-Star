@@ -1,0 +1,17 @@
+{
+  "name": "mine-star",
+  "version": "1.0.0",
+  "description": "Mine Star — a Minesweeper with a twist. Two mine types (1pt + 2pt), three board sizes, local & global leaderboards.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "license": "MIT"
+}

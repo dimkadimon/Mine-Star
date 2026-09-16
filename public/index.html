@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Mine Star — Minesweeper with a Twist</title>
+<meta name="description" content="Mine Star: classic Minesweeper with normal (1pt) and heavy (2pt) mines. Scan sectors, flag stars, top the leaderboard." />
+<meta name="theme-color" content="#070b1d" />
+<link rel="stylesheet" href="styles.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>" />
+</head>
+<body>
+<canvas id="starfield" aria-hidden="true"></canvas>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div id="flash" aria-hidden="true"></div>
+
+<div id="app">
+  <!-- HUD -->
+  <header id="hud" class="hidden">
+    <div class="hud-left">
+      <button id="btnMenu" class="icon-btn" title="Menu (back to start)" aria-label="Back to menu">☰</button>
+      <div class="brand-mini" aria-hidden="true"><span class="logo-star">⭐</span> MINE&nbsp;STAR</div>
+      <span id="sizeBadge" class="size-badge">SMALL</span>
+    </div>
+    <div class="hud-stats" role="status" aria-live="polite">
+      <div class="stat" id="statMines" title="Mine points remaining (normal • heavy)">
+        <span class="stat-ico">💥</span>
+        <span id="pointsLeft">16</span>
+        <span class="stat-sub"><span class="dot dot-n"></span><span id="normLeft">8</span> <span class="dot dot-h"></span><span id="heavyLeft">4</span></span>
+      </div>
+      <div class="stat" id="statTime" title="Elapsed time">
+        <span class="stat-ico">⏱</span><span id="timeText">0.0s</span>
+      </div>
+      <div class="stat" id="statScore" title="Score">
+        <span class="stat-ico">✨</span><span id="scoreText">0</span>
+      </div>
+      <div class="stat combo hidden" id="statCombo" title="Combo multiplier">🔥<span id="comboText">x2</span></div>
+    </div>
+    <div class="hud-right">
+      <div class="mode-switch" id="modeSwitch" role="tablist" aria-label="Input mode">
+        <button data-mode="dig" class="mode-btn active" title="Dig / reveal (tap or click)">⛏️<span>Dig</span></button>
+        <button data-mode="flag1" class="mode-btn" title="Flag normal mine (1pt)">🚩<span>1pt</span></button>
+        <button data-mode="flag2" class="mode-btn" title="Flag heavy mine (2pts)">💜<span>2pt</span></button>
+      </div>
+      <button id="btnHint" class="icon-btn" title="Hint: reveal a safe sector (+5s penalty) [H]" aria-label="Get a hint">💡</button>
+      <button id="btnPause" class="icon-btn" title="Pause [P]" aria-label="Pause game">⏸</button>
+      <button id="btnRestart" class="icon-btn" title="Restart [R]" aria-label="Restart game">↻</button>
+      <button id="btnSound" class="icon-btn" title="Sound on/off [M]" aria-label="Toggle sound">🔊</button>
+    </div>
+  </header>
+
+  <!-- Board -->
+  <main id="boardWrap" class="hidden">
+    <div id="coachBar" class="hidden">
+      <span id="coachText">Tap a sector to scan it. Numbers = total mine points nearby.</span>
+      <button id="coachClose" aria-label="Dismiss tip">✕</button>
+    </div>
+    <div id="boardScroll">
+      <div id="boardShake">
+        <div id="board" role="grid" aria-label="Minefield"></div>
+      </div>
+    </div>
+    <div id="footBar">
+      <span class="foot-hint"><kbd>Click / Tap</kbd> scan · <kbd>Right-click / Long-press</kbd> cycle 🚩→💜 · <kbd>1</kbd>/<kbd>2</kbd> flag · <kbd>Space</kbd> scan · <kbd>C</kbd> chord · <kbd>R</kbd> restart</span>
+    </div>
+  </main>
+
+  <!-- START SCREEN -->
+  <div id="screenStart" class="screen">
+    <div class="panel start-panel">
+      <div class="title-row">
+        <div class="logo-big" aria-hidden="true">⭐</div>
+        <h1 class="game-title">MINE&nbsp;STAR</h1>
+      </div>
+      <p class="tagline">Minesweeper among the stars — now with <b class="c-norm">normal mines (1pt)</b> and <b class="c-heavy">heavy mines (2pts)</b>. Numbers show <b>total points</b> nearby.</p>
+
+      <div class="name-row">
+        <label for="inputName">Callsign</label>
+        <input id="inputName" maxlength="14" placeholder="e.g. NovaPilot" autocomplete="nickname" />
+      </div>
+
+      <div class="size-label">Choose your sector</div>
+      <div class="size-cards" id="sizeCards">
+        <button class="size-card selected" data-size="small">
+          <div class="size-name">🛰 Small</div>
+          <div class="size-dims">9 × 9</div>
+          <div class="size-mines"><span class="dot dot-n"></span>8 × 1pt &nbsp;<span class="dot dot-h"></span>4 × 2pt</div>
+          <div class="size-pts">16 pts total</div>
+        </button>
+        <button class="size-card" data-size="medium">
+          <div class="size-name">🚀 Medium</div>
+          <div class="size-dims">16 × 16</div>
+          <div class="size-mines"><span class="dot dot-n"></span>30 × 1pt &nbsp;<span class="dot dot-h"></span>15 × 2pt</div>
+          <div class="size-pts">60 pts total</div>
+        </button>
+        <button class="size-card" data-size="large">
+          <div class="size-name">🌌 Large</div>
+          <div class="size-dims">30 × 16</div>
+          <div class="size-mines"><span class="dot dot-n"></span>66 × 1pt &nbsp;<span class="dot dot-h"></span>33 × 2pt</div>
+          <div class="size-pts">132 pts total</div>
+        </button>
+      </div>
+
+      <button id="btnStart" class="big-btn">🚀 LAUNCH MISSION <span class="kbd-hint">Enter</span></button>
+
+      <details id="howTo">
+        <summary>📖 How to play (30 seconds)</summary>
+        <div class="how-body">
+          <ol>
+            <li><b>Scan sectors</b> — click / tap (or <kbd>Space</kbd>) to reveal. First scan is always safe.</li>
+            <li><b>Read the numbers</b> — a number = <b>sum of mine points</b> touching that cell. A 💜 heavy mine counts as <b>2</b>.</li>
+            <li><b>Flag both types</b> — <kbd>Right-click</kbd> / long-press cycles <b>🚩 normal (1pt)</b> → <b>💜 heavy (2pts)</b> → clear. Keys <kbd>1</kbd>/<kbd>2</kbd> place directly, <kbd>F</kbd> cycles.</li>
+            <li><b>Chord</b> — click an uncovered number whose surrounding flag-points match to blast open the rest (<kbd>C</kbd>).</li>
+            <li><b>Win</b> — scan every safe sector <b>and</b> flag every mine with the <b>correct type</b>. Fastest time tops the leaderboard!</li>
+          </ol>
+          <p class="how-tip">💡 Mobile tip: use the <b>⛏️/🚩/💜 mode buttons</b> in the top bar. 💡 Stuck? Press <kbd>H</kbd> for a hint (+5s).</p>
+        </div>
+      </details>
+
+      <div class="lb-head">
+        <div class="lb-tabs" id="lbTypeTabs">
+          <button data-lb="local" class="lb-tab active">🏆 Local</button>
+          <button data-lb="global" class="lb-tab">🌍 Global</button>
+        </div>
+        <button id="btnLbRefresh" class="icon-btn small" title="Refresh leaderboard">↻</button>
+      </div>
+      <div class="lb-sub" id="lbSub">Small • sorted by fastest time</div>
+      <div id="startLeaderboard" class="lb-list"><div class="lb-empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div id="screenPause" class="screen hidden">
+    <div class="panel small-panel">
+      <h2>⏸ Paused</h2>
+      <p class="muted">The minefield waits for no pilot… actually it does. Take your time.</p>
+      <div class="stat-grid">
+        <div><span>Time</span><b id="pauseTime">0.0s</b></div>
+        <div><span>Score</span><b id="pauseScore">0</b></div>
+        <div><span>Scanned</span><b id="pauseScanned">0%</b></div>
+      </div>
+      <div class="btn-row">
+        <button id="btnResume" class="big-btn">▶ Resume <span class="kbd-hint">P</span></button>
+      </div>
+      <div class="btn-row split">
+        <button id="btnPauseRestart" class="ghost-btn">↻ Restart</button>
+        <button id="btnPauseMenu" class="ghost-btn">☰ Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WIN -->
+  <div id="screenWin" class="screen hidden">
+    <div class="panel">
+      <h2 class="win-title">🏆 Sector Cleared!</h2>
+      <div class="win-sub" id="winFlavor">Flawless navigation, Pilot.</div>
+      <div class="result-grid">
+        <div class="result-cell"><span>Time</span><b id="winTime">0.0s</b></div>
+        <div class="result-cell"><span>Score</span><b id="winScore">0</b></div>
+        <div class="result-cell"><span>Best combo</span><b id="winCombo">x1</b></div>
+        <div class="result-cell"><span>Size</span><b id="winSize">Small</b></div>
+      </div>
+      <div class="save-row">
+        <label for="winName">Callsign</label>
+        <input id="winName" maxlength="14" />
+        <span id="saveState" class="save-state">💾 Saved!</span>
+      </div>
+      <div id="winRanks" class="win-ranks"></div>
+      <div class="lb-tabs mini" id="winLbTabs">
+        <button data-lb="local" class="lb-tab active">🏆 Local top 5</button>
+        <button data-lb="global" class="lb-tab">🌍 Global top 5</button>
+      </div>
+      <div id="winLeaderboard" class="lb-list compact"></div>
+      <div class="btn-row">
+        <button id="btnWinAgain" class="big-btn">🚀 Play again <span class="kbd-hint">R</span></button>
+      </div>
+      <div class="btn-row split">
+        <button id="btnWinMenu" class="ghost-btn">☰ Change size</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOSE -->
+  <div id="screenLose" class="screen hidden">
+    <div class="panel small-panel">
+      <h2 class="lose-title">💥 Ship Down!</h2>
+      <div class="win-sub" id="loseFlavor">You hit a heavy mine. Ouch.</div>
+      <div class="result-grid">
+        <div class="result-cell"><span>Survived</span><b id="loseTime">0.0s</b></div>
+        <div class="result-cell"><span>Scanned</span><b id="loseScanned">0%</b></div>
+        <div class="result-cell"><span>Flags ✓</span><b id="loseFlags">0</b></div>
+        <div class="result-cell"><span>Score</span><b id="loseScore">0</b></div>
+      </div>
+      <div class="btn-row">
+        <button id="btnLoseAgain" class="big-btn danger">↻ Retry instantly <span class="kbd-hint">R</span></button>
+      </div>
+      <div class="btn-row split">
+        <button id="btnLoseMenu" class="ghost-btn">☰ Menu</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="floaters" aria-hidden="true"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
