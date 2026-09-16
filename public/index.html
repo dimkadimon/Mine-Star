@@ -31,10 +31,9 @@
       <div class="stat" id="statTime" title="Elapsed time">
         <span class="stat-ico">⏱</span><span id="timeText">0.0s</span>
       </div>
-      <div class="stat" id="statScore" title="Score">
-        <span class="stat-ico">✨</span><span id="scoreText">0</span>
+      <div class="stat" id="statHints" title="Hints used (+5s each)">
+        <span class="stat-ico">💡</span><span id="hintsText">0</span>
       </div>
-      <div class="stat combo hidden" id="statCombo" title="Combo multiplier">🔥<span id="comboText">x2</span></div>
     </div>
     <div class="hud-right">
       <div class="mode-switch" id="modeSwitch" role="tablist" aria-label="Input mode">
@@ -42,7 +41,7 @@
         <button data-mode="flag1" class="mode-btn" title="Flag normal mine (1pt)">🚩<span>1pt</span></button>
         <button data-mode="flag2" class="mode-btn" title="Flag heavy mine (2pts)">💜<span>2pt</span></button>
       </div>
-      <button id="btnHint" class="icon-btn" title="Hint: reveal a safe sector (+5s penalty) [H]" aria-label="Get a hint">💡</button>
+      <button id="btnHint" class="hint-btn" title="Hint: highlight a safe sector (+5s penalty) [H]" aria-label="Get a hint">💡<span>Hint</span></button>
       <button id="btnPause" class="icon-btn" title="Pause [P]" aria-label="Pause game">⏸</button>
       <button id="btnRestart" class="icon-btn" title="Restart [R]" aria-label="Restart game">↻</button>
       <button id="btnSound" class="icon-btn" title="Sound on/off [M]" aria-label="Toggle sound">🔊</button>
@@ -126,6 +125,13 @@
       </div>
       <div class="lb-sub" id="lbSub">Small • sorted by fastest time</div>
       <div id="startLeaderboard" class="lb-list"><div class="lb-empty">Loading…</div></div>
+
+      <div class="start-foot">
+        <a href="https://github.com/dimkadimon/Mine-Star" target="_blank" rel="noopener" class="gh-link" title="View source on GitHub">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          Star us on GitHub
+        </a>
+      </div>
     </div>
   </div>
 
@@ -136,7 +142,7 @@
       <p class="muted">The minefield waits for no pilot… actually it does. Take your time.</p>
       <div class="stat-grid">
         <div><span>Time</span><b id="pauseTime">0.0s</b></div>
-        <div><span>Score</span><b id="pauseScore">0</b></div>
+        <div><span>Hints</span><b id="pauseHints">0</b></div>
         <div><span>Scanned</span><b id="pauseScanned">0%</b></div>
       </div>
       <div class="btn-row">
@@ -156,8 +162,8 @@
       <div class="win-sub" id="winFlavor">Flawless navigation, Pilot.</div>
       <div class="result-grid">
         <div class="result-cell"><span>Time</span><b id="winTime">0.0s</b></div>
-        <div class="result-cell"><span>Score</span><b id="winScore">0</b></div>
-        <div class="result-cell"><span>Best combo</span><b id="winCombo">x1</b></div>
+        <div class="result-cell"><span>Hints</span><b id="winHints">0</b></div>
+        <div class="result-cell"><span>Mines</span><b id="winMines">12</b></div>
         <div class="result-cell"><span>Size</span><b id="winSize">Small</b></div>
       </div>
       <div class="save-row">
@@ -189,7 +195,7 @@
         <div class="result-cell"><span>Survived</span><b id="loseTime">0.0s</b></div>
         <div class="result-cell"><span>Scanned</span><b id="loseScanned">0%</b></div>
         <div class="result-cell"><span>Flags ✓</span><b id="loseFlags">0</b></div>
-        <div class="result-cell"><span>Score</span><b id="loseScore">0</b></div>
+        <div class="result-cell"><span>Hints</span><b id="loseHints">0</b></div>
       </div>
       <div class="btn-row">
         <button id="btnLoseAgain" class="big-btn danger">↻ Retry instantly <span class="kbd-hint">R</span></button>

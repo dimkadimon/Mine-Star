@@ -9,7 +9,6 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtTime = (t) => `${t.toFixed(1)}s`;
-const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
 
 // ---------- Config ----------
 const SIZES = {
@@ -29,7 +28,6 @@ const G = {
   elapsed: 0, timerId: null, stamp: 0,
   safeRevealed: 0, totalSafe: 0,
   placedN: 0, placedH: 0,
-  combo: 1, maxCombo: 1, comboBonus: 0, lastRevealAt: 0, comboHideId: null,
   hintsUsed: 0,
   mode: 'dig', // dig | flag1 | flag2
   cursor: 0,
@@ -93,7 +91,7 @@ const Sound = {
     switch (name) {
       case 'click': this.tone(660, 0.05, 'triangle', 0.1); break;
       case 'reveal': {
-        const base = 420 + Math.min(600, (opt.combo || 1) * 90) + Math.min(300, (opt.count || 1) * 12);
+        const base = 420 + Math.min(500, (opt.count || 1) * 22);
         this.tone(base, 0.09, 'sine', 0.14, base * 1.5);
         this.tone(base * 2, 0.06, 'triangle', 0.05, null, 0.03);
         break;
@@ -336,7 +334,7 @@ const LocalLB = {
     const all = this.load();
     entry.id = 'L' + Date.now().toString(36) + Math.floor(Math.random() * 1e4);
     all[entry.size].push(entry);
-    all[entry.size].sort((a, b) => a.time - b.time || b.score - a.score);
+    all[entry.size].sort((a, b) => a.time - b.time || (a.hints ?? 999) - (b.hints ?? 999));
     all[entry.size] = all[entry.size].slice(0, 50);
     this.saveAll(all);
     return { entry, rank: all[entry.size].findIndex((e) => e.id === entry.id) + 1 };
@@ -369,7 +367,7 @@ const GlobalLB = {
       const res = await fetch('/api/scores', {
         method: 'POST', signal: ctrl.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: entry.name, size: entry.size, time: entry.time, score: entry.score }),
+        body: JSON.stringify({ name: entry.name, size: entry.size, time: entry.time, hints: entry.hints, score: 0 }),
       });
       if (!res.ok) throw new Error('post failed');
       const saved = await res.json();
@@ -389,10 +387,11 @@ const GlobalLB = {
 
 function lbRowHTML(e, i, meId) {
   const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+  const hints = (e.hints === null || e.hints === undefined) ? '–' : e.hints;
   return `<div class="lb-row r${i + 1} ${e.id === meId ? 'me' : ''}">
     <span class="rank">${medal}</span>
     <span class="nm">${esc(e.name)}</span>
-    <span class="sc">${fmtInt(e.score)}✨</span>
+    <span class="hm" title="Hints used">💡${hints}</span>
     <span class="tm">${fmtTime(Number(e.time))}</span>
   </div>`;
 }
@@ -461,7 +460,10 @@ function fitBoard() {
   if (cfg.cols >= 30 && window.innerWidth < 700) cell = Math.max(cell, 27);
   if (cfg.cols >= 16 && window.innerWidth < 420) cell = Math.max(cell, 24);
   document.documentElement.style.setProperty('--cell', `${cell}px`);
-  scroll.style.justifyContent = (cell * cfg.cols > scroll.clientWidth - 20) ? 'flex-start' : 'center';
+  // NB: measure against the window, not the scroller — the scroller may be
+  // hidden (width 0) when a new game starts, which used to left-align the grid.
+  const boardPx = cell * cfg.cols + 24;
+  scroll.style.justifyContent = (boardPx > window.innerWidth - 20) ? 'flex-start' : 'center';
 }
 
 function newGame(size) {
@@ -473,7 +475,6 @@ function newGame(size) {
   G.elapsed = 0; G.safeRevealed = 0;
   G.totalSafe = G.total - cfg.normal - cfg.heavy;
   G.placedN = 0; G.placedH = 0;
-  G.combo = 1; G.maxCombo = 1; G.comboBonus = 0; G.lastRevealAt = 0;
   G.hintsUsed = 0;
   G.lastLocalId = null; G.lastGlobalId = null; G.savedSize = null;
   G.cursor = idx(Math.floor(G.rows / 2), Math.floor(G.cols / 2));
@@ -503,6 +504,8 @@ function newGame(size) {
   updateHUD();
   paintCursor();
   showScreen('playing');
+  // Re-fit after unhiding so measurements (and centring) are exact.
+  requestAnimationFrame(() => fitBoard());
 
   // Coach tip for first seconds of fun
   const seen = localStorage.getItem('mineStar_seen');
@@ -515,8 +518,8 @@ function newGame(size) {
     const tips = [
       '⚡ Click an uncovered number to chord-blast its neighbors when flags match.',
       '💜 Heavy mines are worth 2 points — flag with two right-clicks.',
-      '🔥 Chain fast scans to build a combo multiplier.',
-      '💡 Press H for a hint if you get stuck (+5s).',
+      '🚩 Right-click / long-press cycles 🚩 → 💜 → clear. Keys 1 / 2 place directly.',
+      '💡 Press H or the Hint button if you get stuck (+5s).',
     ];
     $('#coachText').textContent = tips[Math.floor(Math.random() * tips.length)];
   } else {
@@ -552,7 +555,6 @@ function startTimer() {
   G.timerId = setInterval(() => {
     G.elapsed = (performance.now() - G.stamp) / 1000 + G._accum;
     $('#timeText').textContent = fmtTime(G.elapsed);
-    $('#scoreText').textContent = fmtInt(computeScore());
   }, 100);
 }
 function stopTimer() {
@@ -567,20 +569,6 @@ function freezeElapsed() {
 }
 G._accum = 0;
 
-function computeScore() {
-  const cfg = SIZES[G.size];
-  const mult = G.size === 'small' ? 1 : G.size === 'medium' ? 1.6 : 2.2;
-  const correct = countCorrectFlags();
-  const base = G.safeRevealed * 10 + correct * 45 + G.comboBonus + totalPointsOf(cfg) * 8;
-  const penalty = Math.floor(G.elapsed) * (G.size === 'small' ? 2 : 3);
-  return Math.max(0, Math.round((base - penalty) * mult));
-}
-function finalScore() {
-  const cfg = SIZES[G.size];
-  const timeBonus = Math.max(0, Math.round((cfg.par - G.elapsed) * (G.size === 'small' ? 12 : G.size === 'medium' ? 8 : 6)));
-  const hintPenalty = G.hintsUsed * 150;
-  return Math.max(100, computeScore() + timeBonus - hintPenalty);
-}
 function countCorrectFlags() {
   let n = 0;
   for (const c of G.cells) if (c.mine && c.flag === c.mine) n++;
@@ -638,33 +626,20 @@ function revealCell(i, viaChord = false) {
       }
     }
   }
-  // Combo
-  const now = performance.now();
-  if (now - G.lastRevealAt < 1600) {
-    G.combo = Math.min(8, G.combo + 1);
-  } else G.combo = 1;
-  G.maxCombo = Math.max(G.maxCombo, G.combo);
-  G.lastRevealAt = now;
-  const gained = revealedNow.length * 10 * G.combo;
-  G.comboBonus += revealedNow.length * 4 * (G.combo - 1);
-
   // Paint with stagger for juice
+  const big = revealedNow.length >= 10;
   revealedNow.forEach((j, k) => {
     setTimeout(() => {
       paintCell(j);
       if (k % 3 === 0) {
         const { x, y } = FX.cellCenter(j);
-        FX.sparks(x, y, G.combo >= 3 ? '#fbbf24' : '#7dd3fc', G.combo >= 3 ? 8 : 4, 2.2);
+        FX.sparks(x, y, big ? '#fbbf24' : '#7dd3fc', big ? 8 : 4, 2.2);
       }
     }, Math.min(260, k * 12));
   });
 
-  const { x, y } = FX.cellCenter(i);
-  if (revealedNow.length >= 6 || G.combo >= 3) {
-    floater(x, y - 10, `+${fmtInt(gained)}${G.combo >= 2 ? `  🔥x${G.combo}` : ''}`, G.combo >= 2 ? 'combo-f' : '');
-    if (G.combo >= 4) { shakeBoard(false); }
-  }
-  Sound.play('reveal', { combo: G.combo, count: revealedNow.length });
+  if (big) shakeBoard(false);
+  Sound.play('reveal', { count: revealedNow.length });
   updateHUD();
   checkWin();
 }
@@ -778,15 +753,15 @@ function winGame() {
     }, k * 2);
   });
 
-  const score = finalScore();
+  const cfg = SIZES[G.size];
   const flavors = [
     'Flawless navigation, Pilot.', 'Mission control is applauding. 👏',
     'That was poetry in motion. ✨', 'Speedy AND precise. Legendary. 🏆',
     'The stars themselves salute you. ⭐',
   ];
   $('#winTime').textContent = fmtTime(G.elapsed);
-  $('#winScore').textContent = fmtInt(score);
-  $('#winCombo').textContent = 'x' + G.maxCombo;
+  $('#winHints').textContent = G.hintsUsed;
+  $('#winMines').textContent = `${cfg.normal + cfg.heavy} (${totalPointsOf(cfg)}pts)`;
   $('#winSize').textContent = SIZES[G.size].label;
   $('#winFlavor').textContent = flavors[Math.floor(Math.random() * flavors.length)];
   $('#winName').value = G.name;
@@ -794,11 +769,11 @@ function winGame() {
   $('#winRanks').innerHTML = '';
 
   setTimeout(() => { showScreen('won'); }, 900);
-  saveWin(score);
+  saveWin();
 }
 
-async function saveWin(score) {
-  const entry = { name: G.name || 'Pilot', size: G.size, time: Math.round(G.elapsed * 10) / 10, score, date: new Date().toISOString() };
+async function saveWin() {
+  const entry = { name: G.name || 'Pilot', size: G.size, time: Math.round(G.elapsed * 10) / 10, hints: G.hintsUsed, date: new Date().toISOString() };
   G.savedSize = G.size;
   // Local (instant)
   const { entry: savedLocal, rank: localRank } = LocalLB.add({ ...entry });
@@ -863,7 +838,7 @@ function loseGame(hitIdx) {
   $('#loseTime').textContent = fmtTime(G.elapsed);
   $('#loseScanned').textContent = pct + '%';
   $('#loseFlags').textContent = `${countCorrectFlags()}/${SIZES[G.size].normal + SIZES[G.size].heavy}`;
-  $('#loseScore').textContent = fmtInt(computeScore());
+  $('#loseHints').textContent = G.hintsUsed;
   $('#loseFlavor').textContent = hit.mine === 2
     ? 'You hit a 💜 heavy mine (2pts). Double ouch.'
     : 'You hit a 🟠 normal mine. So close!';
@@ -876,7 +851,7 @@ function pauseGame() {
   G.screen = 'paused';
   freezeElapsed();
   $('#pauseTime').textContent = fmtTime(G.elapsed);
-  $('#pauseScore').textContent = fmtInt(computeScore());
+  $('#pauseHints').textContent = G.hintsUsed;
   $('#pauseScanned').textContent = Math.round((G.safeRevealed / Math.max(1, G.totalSafe)) * 100) + '%';
   showScreen('paused');
   Sound.play('pause');
@@ -931,16 +906,8 @@ function updateHUD() {
   $('#heavyLeft').textContent = cfg.heavy - G.placedH;
   $('#pointsLeft').style.color = (ptsTotal - ptsPlaced) < 0 ? 'var(--danger)' : '';
   $('#timeText').textContent = fmtTime(G.elapsed);
-  $('#scoreText').textContent = fmtInt(computeScore());
+  $('#hintsText').textContent = G.hintsUsed;
   $('#sizeBadge').textContent = cfg.label.toUpperCase();
-  // combo badge
-  const cb = $('#statCombo');
-  if (G.combo >= 2 && G.screen === 'playing') {
-    cb.classList.remove('hidden');
-    $('#comboText').textContent = 'x' + G.combo;
-    clearTimeout(G.comboHideId);
-    G.comboHideId = setTimeout(() => cb.classList.add('hidden'), 1700);
-  } else cb.classList.add('hidden');
 }
 
 function showScreen(which) {

@@ -72,38 +72,40 @@ app.get('/api/scores', (req, res) => {
     return res.status(400).json({ error: 'Invalid size. Use small, medium or large.' });
   }
   const all = readScores();
+  const hintsOf = (e) => (Number.isFinite(e.hints) ? e.hints : 999);
   const list = [...(all[size] || [])]
-    .sort((a, b) => a.time - b.time || b.score - a.score)
+    .sort((a, b) => a.time - b.time || hintsOf(a) - hintsOf(b))
     .slice(0, limit);
   res.json({ size, scores: list });
 });
 
 app.post('/api/scores', (req, res) => {
-  const { name, size, time, score } = req.body || {};
+  const { name, size, time, score, hints } = req.body || {};
   const cleanSize = String(size || '').toLowerCase();
   if (!VALID_SIZES.includes(cleanSize)) {
     return res.status(400).json({ error: 'Invalid size.' });
   }
   const t = Number(time);
-  const s = Number(score);
   if (!Number.isFinite(t) || t <= 0 || t > 86400) {
     return res.status(400).json({ error: 'Invalid time.' });
   }
-  if (!Number.isFinite(s) || s < 0 || s > 10000000) {
-    return res.status(400).json({ error: 'Invalid score.' });
-  }
+  // score is legacy/optional (kept so old clients keep working); hints is tracked now
+  const s = Number(score);
+  const h = Number(hints);
   const entry = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
     name: sanitizeName(name),
     size: cleanSize,
     time: Math.round(t * 10) / 10,
-    score: Math.round(s),
+    score: Number.isFinite(s) && s >= 0 ? Math.round(s) : 0,
+    hints: Number.isFinite(h) && h >= 0 ? Math.min(999, Math.floor(h)) : null,
     date: new Date().toISOString()
   };
   const all = readScores();
   all[cleanSize].push(entry);
+  const hintsOf = (e) => (Number.isFinite(e.hints) ? e.hints : 999);
   all[cleanSize] = all[cleanSize]
-    .sort((a, b) => a.time - b.time || b.score - a.score)
+    .sort((a, b) => a.time - b.time || hintsOf(a) - hintsOf(b))
     .slice(0, 200);
   writeScores(all);
   const rank = all[cleanSize].findIndex((e) => e.id === entry.id) + 1;

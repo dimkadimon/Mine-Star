@@ -1,5 +1,71 @@
 {
-  "small": [],
-  "medium": [],
+  "small": [
+    {
+      "id": "mu4375ylg58t8h",
+      "name": "dimkadimon",
+      "size": "small",
+      "time": 39.2,
+      "score": 2318,
+      "date": "2026-09-16T12:38:38.061Z"
+    },
+    {
+      "id": "mu42aktm4f5b3t",
+      "name": "dimon",
+      "size": "small",
+      "time": 44.9,
+      "score": 2199,
+      "date": "2026-09-16T12:13:17.674Z"
+    },
+    {
+      "id": "mu424q1f4irt6x",
+      "name": "dimon",
+      "size": "small",
+      "time": 54.9,
+      "score": 2347,
+      "date": "2026-09-16T12:08:44.499Z"
+    },
+    {
+      "id": "mu422466vksf6r",
+      "name": "dimon",
+      "size": "small",
+      "time": 85.9,
+      "score": 1741,
+      "date": "2026-09-16T12:06:42.846Z"
+    }
+  ],
+  "medium": [
+    {
+      "id": "mu42g5mytmrceb",
+      "name": "dimkadimon",
+      "size": "medium",
+      "time": 235.5,
+      "score": 9498,
+      "date": "2026-09-16T12:17:37.930Z"
+    },
+    {
+      "id": "mu432ysksjqmo5",
+      "name": "dimkadimon",
+      "size": "medium",
+      "time": 273.6,
+      "score": 6817,
+      "date": "2026-09-16T12:35:22.148Z"
+    },
+    {
+      "id": "mu42w5s6n541d2",
+      "name": "dimkadimon",
+      "size": "medium",
+      "time": 313.1,
+      "score": 7598,
+      "date": "2026-09-16T12:30:04.614Z"
+    },
+    {
+      "id": "mu41xbk66isa9o",
+      "name": "dimon",
+      "size": "medium",
+      "time": 460.7,
+      "score": 5683,
+      "date": "2026-09-16T12:02:59.142Z"
+    }
+  ],
   "large": []
 }
