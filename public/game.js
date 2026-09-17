@@ -9,6 +9,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtTime = (t) => `${t.toFixed(1)}s`;
+const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
 // ---------- Config ----------
 const SIZES = {
@@ -421,13 +422,13 @@ async function renderWinLB() {
   const box = $('#winLeaderboard');
   const size = G.savedSize || G.size;
   if (G.winLbType === 'local') {
-    const list = LocalLB.list(size).slice(0, 5);
+    const list = LocalLB.list(size).slice(0, 10);
     box.innerHTML = list.length ? list.map((e, i) => lbRowHTML(e, i, G.lastLocalId)).join('') : `<div class="lb-empty">No records.</div>`;
   } else {
     box.innerHTML = `<div class="lb-empty">Contacting mission control… 🛰</div>`;
     try {
       const list = await GlobalLB.list(size, true);
-      box.innerHTML = list.length ? list.slice(0, 5).map((e, i) => lbRowHTML(e, i, G.lastGlobalId)).join('') : `<div class="lb-empty">No global records yet.</div>`;
+      box.innerHTML = list.length ? list.slice(0, 10).map((e, i) => lbRowHTML(e, i, G.lastGlobalId)).join('') : `<div class="lb-empty">No global records yet.</div>`;
     } catch {
       box.innerHTML = `<div class="lb-empty">⚠️ Global leaderboard offline.</div>`;
     }
@@ -512,13 +513,15 @@ function newGame(size) {
   const coach = $('#coachBar');
   if (!seen) {
     coach.classList.remove('hidden');
-    $('#coachText').textContent = '👆 Tap any sector to scan — first scan is always safe. Numbers = total mine points nearby (💜 counts as 2)!';
+    $('#coachText').textContent = IS_TOUCH
+      ? '👆 Single-tap flags 🚩→💜, double-tap scans. First scan is always safe!'
+      : '👆 Click any sector to scan — first scan is always safe. Numbers = total mine points nearby (💜 counts as 2)!';
   } else if (Math.random() < 0.35) {
     coach.classList.remove('hidden');
     const tips = [
       '⚡ Click an uncovered number to chord-blast its neighbors when flags match.',
       '💜 Heavy mines are worth 2 points — flag with two right-clicks.',
-      '🚩 Right-click / long-press cycles 🚩 → 💜 → clear. Keys 1 / 2 place directly.',
+      '🚩 Right-click (or single-tap on touch) cycles 🚩 → 💜 → clear. Keys 1 / 2 place directly.',
       '💡 Press H or the Hint button if you get stuck (+5s).',
     ];
     $('#coachText').textContent = tips[Math.floor(Math.random() * tips.length)];
@@ -970,20 +973,54 @@ function bindBoard() {
     cycleFlag(i);
     if (navigator.vibrate) navigator.vibrate(15);
   });
-  // Long-press for touch
+  // Touch: single-tap flags (cycles none→🚩→💜, or places per mode button),
+  // double-tap scans. Long-press also cycles flags. Mouse is unaffected.
   let lpTimer = null, lpFired = false, touchMoved = false, sx = 0, sy = 0;
+  let lastTapI = -1, lastTapT = 0, tapWait = null;
+  const DOUBLE_TAP_MS = 320;
+  function touchSingle(i) {
+    G.cursor = i; paintCursor();
+    const c = G.cells[i];
+    if (!c || c.revealed) return;
+    if (G.mode === 'flag1') setFlag(i, 1);
+    else if (G.mode === 'flag2') setFlag(i, 2);
+    else cycleFlag(i);
+  }
+  function touchDouble(i) {
+    G.cursor = i; paintCursor();
+    const c = G.cells[i];
+    if (!c || c.revealed) return;
+    if (c.flag) {
+      // First double-tap on a flag just clears it (safe); double-tap again to scan.
+      if (c.flag === 1) G.placedN--; else G.placedH--;
+      c.flag = 0;
+      paintCell(i);
+      Sound.play('unflag');
+      updateHUD();
+      return;
+    }
+    revealCell(i);
+  }
   b.addEventListener('touchstart', (e) => {
     Sound.ensure();
-    if (e.touches.length !== 1) { clearTimeout(lpTimer); return; }
+    if (e.touches.length !== 1) {
+      clearTimeout(lpTimer);
+      if (tapWait) { clearTimeout(tapWait); tapWait = null; }
+      lastTapI = -1;
+      return;
+    }
     const t = e.touches[0];
     sx = t.clientX; sy = t.clientY;
     touchMoved = false; lpFired = false;
     const cell = e.target.closest('.cell');
     const i = cell ? Number(cell.dataset.i) : -1;
+    // Second tap of a potential double-tap: cancel the pending single-tap.
+    if (i >= 0 && i === lastTapI && tapWait) { clearTimeout(tapWait); tapWait = null; }
     clearTimeout(lpTimer);
     lpTimer = setTimeout(() => {
       if (touchMoved || i < 0) return;
       lpFired = true;
+      lastTapI = -1;
       G.suppressClick = true;
       G.cursor = i; paintCursor();
       cycleFlag(i);
@@ -996,8 +1033,36 @@ function bindBoard() {
     const t = e.touches[0];
     if (Math.hypot(t.clientX - sx, t.clientY - sy) > 12) { touchMoved = true; clearTimeout(lpTimer); }
   }, { passive: true });
-  b.addEventListener('touchend', () => { clearTimeout(lpTimer); }, { passive: true });
-  b.addEventListener('touchcancel', () => { clearTimeout(lpTimer); }, { passive: true });
+  b.addEventListener('touchend', (e) => {
+    clearTimeout(lpTimer);
+    if (lpFired) { lpFired = false; G.suppressClick = true; return; }
+    if (touchMoved || e.touches.length > 0) return;
+    const cell = e.target.closest ? e.target.closest('.cell') : null;
+    if (!cell) return;
+    const i = Number(cell.dataset.i);
+    G.suppressClick = true; // swallow the synthetic click — taps are handled here
+    const c = G.cells[i];
+    if (c && c.revealed) {
+      // No ambiguity on revealed cells: chord immediately.
+      lastTapI = -1;
+      G.cursor = i; paintCursor();
+      chordCell(i);
+      return;
+    }
+    const now = performance.now();
+    if (i === lastTapI && now - lastTapT < DOUBLE_TAP_MS) {
+      lastTapI = -1;
+      touchDouble(i);
+    } else {
+      lastTapI = i; lastTapT = now;
+      tapWait = setTimeout(() => { tapWait = null; lastTapI = -1; touchSingle(i); }, DOUBLE_TAP_MS);
+    }
+  }, { passive: true });
+  b.addEventListener('touchcancel', () => {
+    clearTimeout(lpTimer);
+    if (tapWait) { clearTimeout(tapWait); tapWait = null; }
+    lastTapI = -1;
+  }, { passive: true });
   // Prevent double-tap zoom / callout
   b.addEventListener('dblclick', (e) => e.preventDefault());
   document.addEventListener('gesturestart', (e) => e.preventDefault());

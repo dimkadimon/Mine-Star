@@ -11,7 +11,7 @@ Play it live: **https://mine-star.onrender.com**
 - ⚡ **Chording** — click a satisfied number to blast open neighbors
 - 💡 **Hints** — highlight a safe sector (+5s each); hint count is saved with your time
 - ✨ Juicy feedback: particles, screen shake, confetti, procedural sound
-- ⌨️ Full keyboard play (arrows/WASD + Space, F, C, H, R, P) · 📱 touch with Dig/Flag mode buttons + long-press flags
+- ⌨️ Full keyboard play (arrows/WASD + Space, F, C, H, R, P) · 📱 touch with single-tap flags, double-tap scan + Dig/Flag mode buttons
 - ⏸ Pause, 💥 game-over + 🏆 win screens with **instant restart (R)**
 - 🏆 **Local leaderboard** (per size, in-browser) + 🌍 **global leaderboard** (server API) — ranked by fastest time, hints shown
 - 🌌 Animated starfield, 60fps canvas FX, responsive + reduced-motion support
@@ -41,8 +41,8 @@ This repo includes `render.yaml` — create a **Blueprint** from the repo, or a 
 
 | Action | Mouse / Touch | Keyboard |
 |---|---|---|
-| Scan | Click / Tap | Space / Enter |
-| Flag cycle | Right-click / Long-press | F |
+| Scan | Click / Double-tap | Space / Enter |
+| Flag cycle | Right-click / Single-tap | F |
 | Flag 1pt / 2pt | Mode buttons | 1 / 2 |
 | Chord | Click revealed number | C |
 | Hint (+5s) | 💡 Hint button | H |

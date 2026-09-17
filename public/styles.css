@@ -351,7 +351,7 @@ kbd {
 .lb-tab:hover { color: var(--text); }
 .lb-sub { font-size: 12px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
 .lb-list { display: flex; flex-direction: column; gap: 6px; min-height: 80px; max-height: 300px; overflow-y: auto; }
-.lb-list.compact { max-height: 220px; }
+.lb-list.compact { max-height: 300px; }
 .lb-row {
   display: flex; align-items: center; gap: 10px;
   background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07);
