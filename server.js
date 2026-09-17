@@ -62,7 +62,16 @@ function sanitizeName(name) {
 }
 
 app.use(express.json({ limit: '16kb' }));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '30d',
+  immutable: true,
+  setHeaders: (res, filePath) => {
+    // HTML is never cached, so versioned asset URLs are picked up immediately
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+  },
+}));
 
 // ---- API ----
 app.get('/api/scores', (req, res) => {
