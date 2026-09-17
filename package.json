@@ -1,6 +1,6 @@
 {
   "name": "mine-star",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Mine Star — a Minesweeper with a twist. Two mine types (1pt + 2pt), three board sizes, local & global leaderboards.",
   "main": "server.js",
   "scripts": {

@@ -514,14 +514,14 @@ function newGame(size) {
   if (!seen) {
     coach.classList.remove('hidden');
     $('#coachText').textContent = IS_TOUCH
-      ? '👆 Single-tap flags 🚩→💜, double-tap scans. First scan is always safe!'
+      ? '👆 Single-tap scans, double-tap flags 🚩→💜. First scan is always safe!'
       : '👆 Click any sector to scan — first scan is always safe. Numbers = total mine points nearby (💜 counts as 2)!';
   } else if (Math.random() < 0.35) {
     coach.classList.remove('hidden');
     const tips = [
       '⚡ Click an uncovered number to chord-blast its neighbors when flags match.',
       '💜 Heavy mines are worth 2 points — flag with two right-clicks.',
-      '🚩 Right-click (or single-tap on touch) cycles 🚩 → 💜 → clear. Keys 1 / 2 place directly.',
+      '🚩 Right-click (or double-tap on touch) cycles 🚩 → 💜 → clear. Keys 1 / 2 place directly.',
       '💡 Press H or the Hint button if you get stuck (+5s).',
     ];
     $('#coachText').textContent = tips[Math.floor(Math.random() * tips.length)];
@@ -973,33 +973,24 @@ function bindBoard() {
     cycleFlag(i);
     if (navigator.vibrate) navigator.vibrate(15);
   });
-  // Touch: single-tap flags (cycles none→🚩→💜, or places per mode button),
-  // double-tap scans. Long-press also cycles flags. Mouse is unaffected.
+  // Touch: single-tap scans (or places per mode button), double-tap cycles
+  // flags none→🚩→💜. Long-press also cycles flags. Mouse is unaffected.
   let lpTimer = null, lpFired = false, touchMoved = false, sx = 0, sy = 0;
   let lastTapI = -1, lastTapT = 0, tapWait = null;
-  const DOUBLE_TAP_MS = 320;
+  const DOUBLE_TAP_MS = 300;
   function touchSingle(i) {
     G.cursor = i; paintCursor();
     const c = G.cells[i];
     if (!c || c.revealed) return;
     if (G.mode === 'flag1') setFlag(i, 1);
     else if (G.mode === 'flag2') setFlag(i, 2);
-    else cycleFlag(i);
+    else revealCell(i); // ignores flagged cells — double-tap to change flags
   }
   function touchDouble(i) {
     G.cursor = i; paintCursor();
     const c = G.cells[i];
     if (!c || c.revealed) return;
-    if (c.flag) {
-      // First double-tap on a flag just clears it (safe); double-tap again to scan.
-      if (c.flag === 1) G.placedN--; else G.placedH--;
-      c.flag = 0;
-      paintCell(i);
-      Sound.play('unflag');
-      updateHUD();
-      return;
-    }
-    revealCell(i);
+    cycleFlag(i);
   }
   b.addEventListener('touchstart', (e) => {
     Sound.ensure();

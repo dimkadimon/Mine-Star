@@ -375,6 +375,7 @@ kbd {
   transition: all .15s ease;
 }
 .gh-link:hover { color: var(--text); border-color: rgba(34,211,238,.5); box-shadow: 0 0 14px rgba(34,211,238,.25); transform: translateY(-1px); }
+.ver-tag { text-align: center; margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--muted); opacity: .8; }
 
 /* ---------- Win / Lose ---------- */
 .win-title { text-align: center; background: linear-gradient(90deg,#34d399,#fbbf24); -webkit-background-clip: text; background-clip: text; color: transparent; }
