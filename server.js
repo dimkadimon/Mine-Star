@@ -93,6 +93,25 @@ async function ghGetFile() {
   return res.json();
 }
 
+async function ghHeaders() {
+  return { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'User-Agent': 'mine-star-server' };
+}
+
+async function ensureBranch() {
+  // The Contents API won't create a branch — create it from main if missing.
+  const ref = await fetch(`https://api.github.com/repos/${GH_REPO}/git/ref/heads/${GH_BRANCH}`, { headers: ghHeaders() });
+  if (ref.ok) return;
+  const base = await fetch(`https://api.github.com/repos/${GH_REPO}/git/ref/heads/main`, { headers: ghHeaders() });
+  if (!base.ok) throw new Error(`gh base ref ${base.status}`);
+  const sha = (await base.json()).object.sha;
+  const create = await fetch(`https://api.github.com/repos/${GH_REPO}/git/refs`, {
+    method: 'POST',
+    headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: `refs/heads/${GH_BRANCH}`, sha }),
+  });
+  if (!create.ok && create.status !== 422) throw new Error(`gh create branch ${create.status}`);
+}
+
 async function restoreFromGitHub() {
   if (!GH_TOKEN) return;
   try {
@@ -129,6 +148,7 @@ async function backupToGitHub() {
           headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 'mine-star-server' },
           body: JSON.stringify(payload),
         });
+        if (put.status === 404) { await ensureBranch(); continue; } // branch missing, create + retry
         if (put.status === 409 || put.status === 422) continue; // sha raced, retry
         if (!put.ok) throw new Error(`gh put ${put.status}`);
         writeScores(merged);
