@@ -61,6 +61,93 @@ function sanitizeName(name) {
   return n || 'Pilot';
 }
 
+// ---------- GitHub backup (survives redeploys/sleeps on free-tier ephemeral disk) ----------
+const GH_TOKEN = process.env.GITHUB_TOKEN || '';
+const GH_REPO = 'dimkadimon/Mine-Star';
+const GH_BRANCH = 'scores-backup';
+const GH_PATH = 'data/scores.json';
+const backupState = { enabled: !!GH_TOKEN, lastOk: null, lastError: null, inFlight: false, dirty: false };
+
+function mergeScores(a, b) {
+  const out = {};
+  const hintsOf = (e) => (Number.isFinite(e.hints) ? e.hints : 999);
+  for (const s of VALID_SIZES) {
+    const seen = new Map();
+    for (const e of [...((a && a[s]) || []), ...((b && b[s]) || [])]) {
+      if (e && e.id && !seen.has(e.id)) seen.set(e.id, e);
+    }
+    out[s] = [...seen.values()]
+      .filter((e) => Number.isFinite(Number(e.time)))
+      .sort((x, y) => x.time - y.time || hintsOf(x) - hintsOf(y))
+      .slice(0, 200);
+  }
+  return out;
+}
+
+async function ghGetFile() {
+  const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_PATH}?ref=${GH_BRANCH}`, {
+    headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'User-Agent': 'mine-star-server' },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`gh get ${res.status}`);
+  return res.json();
+}
+
+async function restoreFromGitHub() {
+  if (!GH_TOKEN) return;
+  try {
+    const file = await ghGetFile();
+    if (!file) { console.log('No GitHub backup yet, starting from local seed'); return; }
+    const remote = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+    const merged = mergeScores(readScores(), remote);
+    writeScores(merged);
+    console.log('Restored scores from GitHub backup branch');
+  } catch (e) {
+    console.log('GitHub restore skipped:', e.message);
+  }
+}
+
+async function backupToGitHub() {
+  if (!GH_TOKEN) return;
+  if (backupState.inFlight) { backupState.dirty = true; return; }
+  backupState.inFlight = true;
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const file = await ghGetFile();
+        const remote = file ? JSON.parse(Buffer.from(file.content, 'base64').toString('utf8')) : null;
+        const merged = mergeScores(readScores(), remote || {});
+        const body = Buffer.from(JSON.stringify(merged, null, 2)).toString('base64');
+        const payload = {
+          message: `chore: backup global scores ${new Date().toISOString()}`,
+          content: body,
+          branch: GH_BRANCH,
+        };
+        if (file) payload.sha = file.sha;
+        const put = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_PATH}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 'mine-star-server' },
+          body: JSON.stringify(payload),
+        });
+        if (put.status === 409 || put.status === 422) continue; // sha raced, retry
+        if (!put.ok) throw new Error(`gh put ${put.status}`);
+        writeScores(merged);
+        backupState.lastOk = new Date().toISOString();
+        backupState.lastError = null;
+        break;
+      } catch (e) {
+        if (attempt === 2) throw e;
+      }
+    }
+  } catch (e) {
+    backupState.lastError = `${new Date().toISOString()}: ${e.message}`;
+    console.error('GitHub backup failed:', e.message);
+  } finally {
+    backupState.inFlight = false;
+    if (backupState.dirty) { backupState.dirty = false; backupToGitHub(); }
+  }
+}
+
 app.use(express.json({ limit: '16kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '30d',
@@ -117,12 +204,17 @@ app.post('/api/scores', (req, res) => {
     .sort((a, b) => a.time - b.time || hintsOf(a) - hintsOf(b))
     .slice(0, 200);
   writeScores(all);
+  backupToGitHub();
   const rank = all[cleanSize].findIndex((e) => e.id === entry.id) + 1;
   res.status(201).json({ ...entry, rank });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
+  res.json({
+    ok: true,
+    time: new Date().toISOString(),
+    backup: { enabled: backupState.enabled, lastOk: backupState.lastOk, lastError: backupState.lastError },
+  });
 });
 
 app.patch('/api/scores/:id', (req, res) => {
@@ -139,7 +231,27 @@ app.patch('/api/scores/:id', (req, res) => {
       }
       e.name = sanitizeName(name);
       writeScores(all);
+      backupToGitHub();
       return res.json(e);
+    }
+  }
+  res.status(404).json({ error: 'Not found.' });
+});
+
+app.delete('/api/scores/:id', (req, res) => {
+  // Moderation endpoint — guarded by the server-side backup token.
+  if (!GH_TOKEN || req.query.token !== GH_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden.' });
+  }
+  const { id } = req.params;
+  const all = readScores();
+  for (const size of VALID_SIZES) {
+    const ix = (all[size] || []).findIndex((x) => x.id === id);
+    if (ix >= 0) {
+      const [gone] = all[size].splice(ix, 1);
+      writeScores(all);
+      backupToGitHub();
+      return res.json({ deleted: gone });
     }
   }
   res.status(404).json({ error: 'Not found.' });
@@ -151,6 +263,12 @@ app.get('*', (req, res) => {
 });
 
 ensureStore();
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`⭐ Mine Star running on port ${PORT}`);
-});
+// Pull any scores that landed after this image was built (e.g. wiped by a
+// redeploy), then start serving.
+restoreFromGitHub()
+  .catch(() => {})
+  .finally(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`⭐ Mine Star running on port ${PORT}`);
+    });
+  });

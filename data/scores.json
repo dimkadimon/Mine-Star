@@ -1,6 +1,24 @@
 {
   "small": [
     {
+      "id": "muifkhxvgi6802",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 32.5,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:33:41.971Z"
+    },
+    {
+      "id": "muifi8mdut6ev7",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 34,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:31:56.581Z"
+    },
+    {
       "id": "mu43b57mzx1ots",
       "name": "dimkadimon",
       "size": "small",
@@ -25,6 +43,42 @@
       "date": "2026-09-16T12:13:17.674Z"
     },
     {
+      "id": "muif4yilimyvgu",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 47.1,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:21:36.957Z"
+    },
+    {
+      "id": "muiffsbbkxvw8v",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 48.3,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:30:02.136Z"
+    },
+    {
+      "id": "muifav5scdc234",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 50.1,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:26:12.544Z"
+    },
+    {
+      "id": "muifdqmfyz335q",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 50.7,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:28:26.631Z"
+    },
+    {
       "id": "mu424q1f4irt6x",
       "name": "dimon",
       "size": "small",
@@ -33,12 +87,39 @@
       "date": "2026-09-16T12:08:44.499Z"
     },
     {
+      "id": "muifckuu3kcwu3",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 64.6,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:27:32.502Z"
+    },
+    {
+      "id": "muif7i4ei4dz9p",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 66.6,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:23:35.678Z"
+    },
+    {
       "id": "mu422466vksf6r",
       "name": "dimon",
       "size": "small",
       "time": 85.9,
       "score": 1741,
       "date": "2026-09-16T12:06:42.846Z"
+    },
+    {
+      "id": "muif26u1t2g8ed",
+      "name": "eulerscheZahl",
+      "size": "small",
+      "time": 102.9,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-09-26T13:19:27.769Z"
     }
   ],
   "medium": [

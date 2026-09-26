@@ -362,19 +362,28 @@ const GlobalLB = {
     } finally { clearTimeout(to); }
   },
   async add(entry) {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 7000);
-    try {
-      const res = await fetch('/api/scores', {
-        method: 'POST', signal: ctrl.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: entry.name, size: entry.size, time: entry.time, hints: entry.hints, score: 0 }),
-      });
-      if (!res.ok) throw new Error('post failed');
-      const saved = await res.json();
-      this.cache[entry.size] = null;
-      return saved;
-    } finally { clearTimeout(to); }
+    let lastErr = new Error('post failed');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const res = await fetch('/api/scores', {
+          method: 'POST', signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: entry.name, size: entry.size, time: entry.time, hints: entry.hints, score: 0 }),
+        });
+        clearTimeout(to);
+        if (!res.ok) throw new Error('post failed');
+        const saved = await res.json();
+        this.cache[entry.size] = null;
+        return saved;
+      } catch (e) {
+        lastErr = e;
+        clearTimeout(to);
+        await new Promise((r) => setTimeout(r, 700));
+      }
+    }
+    throw lastErr;
   },
   async rename(id, name) {
     try {
@@ -432,6 +441,68 @@ async function renderWinLB() {
     } catch {
       box.innerHTML = `<div class="lb-empty">⚠️ Global leaderboard offline.</div>`;
     }
+  }
+}
+
+// ---------- Offline-safe global uploads ----------
+const Pending = {
+  key: 'mineStar_pending_v1',
+  load() {
+    try { const q = JSON.parse(localStorage.getItem(this.key) || '[]'); return Array.isArray(q) ? q : []; }
+    catch { return []; }
+  },
+  save(q) { try { localStorage.setItem(this.key, JSON.stringify(q.slice(0, 50))); } catch {} },
+  push(entry) { const q = this.load(); q.push(entry); this.save(q); },
+};
+
+async function flushPending(silent = true) {
+  const q = Pending.load();
+  if (!q.length) return 0;
+  let done = 0;
+  const rest = [];
+  for (const e of q) {
+    try { await GlobalLB.add(e); done++; }
+    catch { rest.push(e); }
+  }
+  Pending.save(rest);
+  if (done && !silent) {
+    toast(`⬆ Synced ${done} pending result${done > 1 ? 's' : ''} to global!`, 'good');
+    renderStartLB();
+  }
+  return done;
+}
+
+async function syncLocalToGlobal() {
+  const btn = $('#btnSync');
+  if (btn) btn.disabled = true;
+  toast('⬆ Syncing your records to global…', '', 2000);
+  let posted = 0;
+  try {
+    for (const size of ['small', 'medium', 'large']) {
+      const local = LocalLB.list(size);
+      if (!local.length) continue;
+      let global = [];
+      try { global = await GlobalLB.list(size, true); }
+      catch { continue; }
+      const has = new Set(global.map((g) => `${g.name}|${Number(g.time)}`));
+      for (const e of local) {
+        const key = `${e.name}|${Number(e.time)}`;
+        if (has.has(key)) continue;
+        try {
+          await GlobalLB.add({ name: e.name, size, time: e.time, hints: e.hints });
+          has.add(key);
+          posted++;
+        } catch { /* will retry next time */ }
+      }
+    }
+    const flushed = await flushPending(true);
+    const total = posted + flushed;
+    toast(total ? `⬆ Synced ${total} record${total > 1 ? 's' : ''} to global! 🌍` : '✅ Everything is already synced!', total ? 'good' : '', 2600);
+  } catch {
+    toast('⚠️ Sync failed — check connection and retry', 'bad');
+  } finally {
+    if (btn) btn.disabled = false;
+    renderStartLB();
   }
 }
 
@@ -781,17 +852,20 @@ async function saveWin() {
   // Local (instant)
   const { entry: savedLocal, rank: localRank } = LocalLB.add({ ...entry });
   G.lastLocalId = savedLocal.id;
-  // Global (async)
+  // Global (async — queued for retry if the upload fails)
   let globalRank = null;
   try {
     const saved = await GlobalLB.add(entry);
     G.lastGlobalId = saved.id;
     globalRank = saved.rank;
-  } catch { G.lastGlobalId = null; }
+  } catch {
+    G.lastGlobalId = null;
+    Pending.push({ name: entry.name, size: entry.size, time: entry.time, hints: entry.hints });
+  }
   $('#saveState').textContent = '💾 Saved!';
   $('#winRanks').innerHTML =
     `<span class="rank-pill">🏆 Local #${localRank}</span>` +
-    (globalRank ? `<span class="rank-pill global">🌍 Global #${globalRank}</span>` : `<span class="rank-pill global">🌍 global offline</span>`);
+    (globalRank ? `<span class="rank-pill global">🌍 Global #${globalRank}</span>` : `<span class="rank-pill global">🌍 queued — will sync</span>`);
   renderWinLB();
 }
 
@@ -1167,6 +1241,7 @@ function bindUI() {
     Sound.play('click');
   }));
   $('#btnLbRefresh').addEventListener('click', () => { GlobalLB.cache[G.size] = null; renderStartLB(); Sound.play('click'); });
+  $('#btnSync').addEventListener('click', () => { Sound.ensure(); syncLocalToGlobal(); });
 
   $('#btnMenu').addEventListener('click', goMenu);
   $('#btnPause').addEventListener('click', () => (G.screen === 'playing' ? pauseGame() : resumeGame()));
@@ -1224,5 +1299,7 @@ function boot() {
   bindBoard();
   bindKeys();
   showScreen('start');
+  flushPending(false);
+  window.addEventListener('online', () => flushPending(false));
 }
 document.addEventListener('DOMContentLoaded', boot);

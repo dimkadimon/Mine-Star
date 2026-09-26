@@ -14,6 +14,7 @@ Play it live: **https://mine-star.onrender.com**
 - ⌨️ Full keyboard play (arrows/WASD + Space, F, C, H, R, P) · 📱 touch with single-tap scan, double-tap flags + Dig/Flag mode buttons
 - ⏸ Pause, 💥 game-over + 🏆 win screens with **instant restart (R)**
 - 🏆 **Local leaderboard** (per size, in-browser) + 🌍 **global leaderboard** (server API) — ranked by fastest time, hints shown
+- 🔄 Resilient uploads — failed global saves queue in your browser and auto-sync later; one-tap ⬆ sync pushes local records up
 - 🌌 Animated starfield, 60fps canvas FX, responsive + reduced-motion support
 
 ## Run locally
@@ -29,6 +30,10 @@ npm start
 - `GET /api/scores?size=small|medium|large&limit=20` — top scores by fastest time
 - `POST /api/scores` — `{ name, size, time, hints }`
 - `PATCH /api/scores/:id` — `{ name }` (rename within 15 min)
+- `DELETE /api/scores/:id?token=...` — moderation (guarded by server token)
+
+Global scores are also backed up to the `scores-backup` branch on every
+result and restored on boot, so free-tier redeploys never lose them.
 - `GET /api/health` — health check
 
 ## Deploy (Render)

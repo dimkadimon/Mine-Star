@@ -6,7 +6,7 @@
 <title>Mine Star — Minesweeper with a Twist</title>
 <meta name="description" content="Mine Star: classic Minesweeper with normal (1pt) and heavy (2pt) mines. Scan sectors, flag stars, top the leaderboard." />
 <meta name="theme-color" content="#070b1d" />
-<link rel="stylesheet" href="styles.css?v=1.1.1" />
+<link rel="stylesheet" href="styles.css?v=1.1.2" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>" />
 </head>
 <body>
@@ -121,7 +121,10 @@
           <button data-lb="local" class="lb-tab active">🏆 Local</button>
           <button data-lb="global" class="lb-tab">🌍 Global</button>
         </div>
-        <button id="btnLbRefresh" class="icon-btn small" title="Refresh leaderboard">↻</button>
+        <div class="lb-actions">
+          <button id="btnSync" class="icon-btn small" title="Upload my local records to the global board">⬆</button>
+          <button id="btnLbRefresh" class="icon-btn small" title="Refresh leaderboard">↻</button>
+        </div>
       </div>
       <div class="lb-sub" id="lbSub">Small • sorted by fastest time</div>
       <div id="startLeaderboard" class="lb-list"><div class="lb-empty">Loading…</div></div>
@@ -132,7 +135,7 @@
           Star us on GitHub
         </a>
       </div>
-      <div class="ver-tag">v1.1.1</div>
+      <div class="ver-tag">v1.1.2</div>
     </div>
   </div>
 
@@ -211,6 +214,6 @@
 <div id="toasts" aria-live="polite"></div>
 <div id="floaters" aria-hidden="true"></div>
 
-<script src="game.js?v=1.1.1"></script>
+<script src="game.js?v=1.1.2"></script>
 </body>
 </html>
