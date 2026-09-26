@@ -13,7 +13,7 @@ function ensureStore() {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     if (!fs.existsSync(SCORES_FILE)) {
-      fs.writeFileSync(SCORES_FILE, JSON.stringify({ small: [], medium: [], large: [] }, null, 2));
+      fs.writeFileSync(SCORES_FILE, JSON.stringify({ small: [], medium: [], large: [], _deleted: [] }, null, 2));
     } else {
       // Validate shape, repair if needed
       const raw = fs.readFileSync(SCORES_FILE, 'utf8');
@@ -21,6 +21,7 @@ function ensureStore() {
       for (const s of VALID_SIZES) {
         if (!Array.isArray(parsed[s])) parsed[s] = [];
       }
+      if (!Array.isArray(parsed._deleted)) parsed._deleted = [];
       fs.writeFileSync(SCORES_FILE, JSON.stringify(parsed, null, 2));
     }
   } catch (e) {
@@ -28,7 +29,7 @@ function ensureStore() {
   }
 }
 
-let memoryFallback = { small: [], medium: [], large: [] };
+let memoryFallback = { small: [], medium: [], large: [], _deleted: [] };
 
 function readScores() {
   try {
@@ -37,6 +38,7 @@ function readScores() {
     for (const s of VALID_SIZES) {
       if (!Array.isArray(parsed[s])) parsed[s] = [];
     }
+    if (!Array.isArray(parsed._deleted)) parsed._deleted = [];
     return parsed;
   } catch (e) {
     return memoryFallback;
@@ -71,16 +73,19 @@ const backupState = { enabled: !!GH_TOKEN, lastOk: null, lastError: null, inFlig
 function mergeScores(a, b) {
   const out = {};
   const hintsOf = (e) => (Number.isFinite(e.hints) ? e.hints : 999);
+  // Tombstones: ids deleted on either side stay deleted after merging.
+  const dead = new Set([...(((a && a._deleted) || [])), ...(((b && b._deleted) || []))]);
   for (const s of VALID_SIZES) {
     const seen = new Map();
     for (const e of [...((a && a[s]) || []), ...((b && b[s]) || [])]) {
-      if (e && e.id && !seen.has(e.id)) seen.set(e.id, e);
+      if (e && e.id && !dead.has(e.id) && !seen.has(e.id)) seen.set(e.id, e);
     }
     out[s] = [...seen.values()]
       .filter((e) => Number.isFinite(Number(e.time)))
       .sort((x, y) => x.time - y.time || hintsOf(x) - hintsOf(y))
       .slice(0, 200);
   }
+  out._deleted = [...dead].slice(-1000);
   return out;
 }
 
@@ -269,6 +274,7 @@ app.delete('/api/scores/:id', (req, res) => {
     const ix = (all[size] || []).findIndex((x) => x.id === id);
     if (ix >= 0) {
       const [gone] = all[size].splice(ix, 1);
+      all._deleted = [...(all._deleted || []), gone.id].slice(-1000);
       writeScores(all);
       backupToGitHub();
       return res.json({ deleted: gone });
