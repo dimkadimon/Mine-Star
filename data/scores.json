@@ -1,6 +1,15 @@
 {
   "small": [
     {
+      "id": "mur5b4igtmbzi6",
+      "name": "Pilot",
+      "size": "small",
+      "time": 18.5,
+      "score": 0,
+      "hints": 0,
+      "date": "2026-10-02T15:56:24.088Z"
+    },
+    {
       "id": "muihyw8x30rc73",
       "name": "struct",
       "size": "small",
